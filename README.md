@@ -5,4 +5,4 @@ Thibaut Pepin
     make
 
 ## Execution
-    ./heat.out <Nb_iter> <height> <width>
+    mpirun ./heat.out <Nb_iter> <height> <width>

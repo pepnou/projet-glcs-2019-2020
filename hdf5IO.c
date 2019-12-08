@@ -5,13 +5,14 @@
 #include <glib/gprintf.h>
 #include <string.h>
 
-
+// stores all opened files and some properties
 #define MAX_FILE_NUM 10
 hid_t files[MAX_FILE_NUM];
 hid_t plistIds[MAX_FILE_NUM];
 hid_t multiAccessFiles[MAX_FILE_NUM];
 int files_init = 0;
 
+// return the string resulting of sprintf, but using va_list
 #define GET_NAME \
   char s[100]; \
   va_list arg; \
@@ -20,7 +21,7 @@ int files_init = 0;
   va_end (arg);
 
 
-
+// check the return value of hdf5 value and handle errors
 hid_t H5Guard(hid_t ret) {
   if(ret < 0) {
     MPI_Abort(MPI_COMM_WORLD, 1);
@@ -31,30 +32,38 @@ hid_t H5Guard(hid_t ret) {
 }
 
 
-
+// open a file which name is define with (format, ...) using the same syntax as printf.
+// set multiAccess to 1 if the file is going to be accessed by mutltiple processes
 int openFile(int multiAccess, const char* format, ...) {
+  // initialise the array of file id
   if(!files_init) {
     for(int i = 0; i < MAX_FILE_NUM; i++) {
       files[i] = -1;
     }
     files_init = 1;
   }
-
+  
+  // get the name of the file we're trying to open
   GET_NAME
 
+  // get MPI rank
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   
+  // Check the array of ids to find an empty slot
   for(int i = 0; i < MAX_FILE_NUM; i++) {
     if(files[i] == -1) {
+      // if the file is going to be accessed by multiple processes
       if( multiAccess ) {
+        // create access rules
         plistIds[i] = H5Guard(H5Pcreate(H5P_FILE_ACCESS));
         H5Guard(H5Pset_fapl_mpio(plistIds[i], MPI_COMM_WORLD, MPI_INFO_NULL));
-        
+        // create HDF5 file
         files[i] = H5Guard(H5Fcreate(s, H5F_ACC_TRUNC, H5P_DEFAULT, plistIds[i]));
         
         multiAccessFiles[i] = 1;
       } else {
+        // create HDF5 file
         files[i] = H5Guard(H5Fcreate(s, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
         
         multiAccessFiles[i] = 0;
@@ -64,21 +73,28 @@ int openFile(int multiAccess, const char* format, ...) {
     }
   }
 
+  // No space left in the ids array to open a new file
   fprintf(stderr, "Too much files opened.\n");
   MPI_Abort(MPI_COMM_WORLD, 1);
   exit(1);
 }
 
 
-
+// Write in the HDF5 file defined by id, in the dataset which name is defined with (format, ...) using the same syntax as printf,  a 2D array.
+// dataMargin defines the size of the margin of the 2D array which is no going to be written in the file.
+// fileDims defines the dimension of the file.
+// The data array will be written in the file at the position defined by fileXOffset and fileYOffset
 void writeFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileDims, int fileXOffset, int fileYOffset, const char* format, ...) {
+  // get the name of the dataset we're writing in
   GET_NAME
  
+  // get the MPI rank
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 
-
+  
+  // initialise arrays defining size and offset for the dataspaces and hyperslabs
   hsize_t arraySize[2]  = {arrayDims[0], arrayDims[1]};
   hsize_t memOffset[2]  = {dataMargin, dataMargin};
 
@@ -92,19 +108,24 @@ void writeFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileD
   hid_t fdataspace_id = 0;
   hid_t dataset_id    = 0;
 
+  // create dataspace for the file and the memory
   mdataspace_id = H5Guard(H5Screate_simple(2, arraySize, NULL));
   fdataspace_id = H5Guard(H5Screate_simple(2, fileSize, NULL));
   
 
-   
+
+  // create the dataset
   dataset_id = H5Guard(H5Dcreate(files[id], s, H5T_NATIVE_DOUBLE, fdataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
 
 
 
+  // create the hyperslabs
   H5Guard(H5Sselect_hyperslab(mdataspace_id, H5S_SELECT_SET, memOffset,  NULL, dataSize, NULL));
   H5Guard(H5Sselect_hyperslab(fdataspace_id, H5S_SELECT_SET, fileOffset, NULL, dataSize, NULL));
 
 
+
+  // write in the file
   if( multiAccessFiles[id] ) {
     hid_t plist_id = H5Guard(H5Pcreate(H5P_DATASET_XFER));
     H5Guard(H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE));
@@ -117,20 +138,25 @@ void writeFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileD
   }
 
 
+  //close dataset and dataspaces
   H5Guard(H5Dclose(dataset_id));
   H5Guard(H5Sclose(mdataspace_id));
   H5Guard(H5Sclose(fdataspace_id));
 }
 
 
-
+// Close the HDF5 file
 void closeFile(int id) {
+
+  // close the access rules
   if(multiAccessFiles[id]) {
     H5Guard(H5Pclose(plistIds[id]));
   }
 
+  // close the file
   H5Guard(H5Fclose (files[id]));
   
+  // set the id back to -1 to mark it free to be used again
   files[id] = -1;
 }
 
