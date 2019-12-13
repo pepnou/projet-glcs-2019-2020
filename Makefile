@@ -1,32 +1,31 @@
-all: heat.out mean.out
+CC=h5pcc
+CFLAGS=-O0 -Wall -Werror `pkg-config --cflags --libs glib-2.0`
+LFLAGS=
+
+
+
+all: heat.out mean.out derivative.out
 	
 
-heat.out: heat.o hdf5IO.o
-	h5pcc -Wall -Werror `pkg-config --cflags --libs glib-2.0` heat.o hdf5IO.o -o heat.out
+%.o: %.c hdf5IO.h
+	$(CC) $(CFLAGS) -c $< -o $@
 	
 
-heat.o: heat.c hdf5IO.h
-	h5pcc -Wall -Werror -c heat.c -o heat.o
-
-
-hdf5IO.o: hdf5IO.c
-	h5pcc -Wall -Werror `pkg-config --cflags --libs glib-2.0` -c hdf5IO.c -o hdf5IO.o 
+%.out: %.o hdf5IO.o
+	$(CC) $(CFLAGS) $^ -o $@
 	
-
-mean.out: mean.o hdf5IO.o
-	h5pcc -Wall -Werror mean.o hdf5IO.o `pkg-config --cflags --libs glib-2.0` -o mean.out
-
-
-mean.o: mean.c hdf5IO.h
-	h5pcc -Wall -Werror -c mean.c -o mean.o
-
 
 runHeat: heat.out
-	mpirun -np 4 ./heat.out 100 100 100
+	mpirun -np 4 ./$< 4 4 8
 	
 
 runMean: mean.out runHeat
-	./mean.out 1 2
+	./$< 1 2
+	
+
+runDerivative: derivative.out runHeat
+	./$< 2 4
+	
 
 clean: cleanH5
 	rm -f *.o
@@ -35,3 +34,8 @@ clean: cleanH5
 
 cleanH5:
 	rm -f *.h5
+
+tar: clean
+	tar -czf ../projet-GLCS-PEPIN-EMERY.tar.gz ./
+
+

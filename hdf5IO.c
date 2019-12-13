@@ -74,7 +74,7 @@ int createFile(int multiAccess, const char* format, ...) {
   }
 
   // No space left in the ids array to open a new file
-  fprintf(stderr, "Too much files opened.\n");
+  fprintf(stderr, "Too much files or group opened.\n");
   MPI_Abort(MPI_COMM_WORLD, 1);
   exit(1);
 }
@@ -287,4 +287,47 @@ void getDims(int id, int dims[2]) {
   H5Guard(H5Dclose(dataset_id));
 
   dims[0] = dim[0]; dims[1] = dim[1];
+}
+
+int createGroup(int id, const char* format, ...) {
+    // get the name of the file we're trying to open
+  GET_NAME
+
+  // get MPI rank
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  
+  // Check the array of ids to find an empty slot
+  for(int i = 0; i < MAX_FILE_NUM; i++) {
+    if(files[i] == -1) {
+      // if the file is going to be accessed by multiple processes
+      /*if( multiAccess ) {
+        // create access rules
+        plistIds[i] = H5Guard(H5Pcreate(H5P_FILE_ACCESS));
+        H5Guard(H5Pset_fapl_mpio(plistIds[i], MPI_COMM_WORLD, MPI_INFO_NULL));
+        // create HDF5 file
+        files[i] = H5Guard(H5Fcreate(s, H5F_ACC_TRUNC, H5P_DEFAULT, plistIds[i]));
+        
+        multiAccessFiles[i] = 1;
+      } else {*/
+        // create HDF5 group
+        files[i] = H5Guard(H5Gcreate( files[id], s, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+        
+        multiAccessFiles[i] = 0;
+      //}
+
+      return i;
+    }
+  }
+
+  // No space left in the ids array to open a new file
+  fprintf(stderr, "Too much files or groups opened.\n");
+  MPI_Abort(MPI_COMM_WORLD, 1);
+  exit(1);
+}
+
+void closeGroup(int id) {
+  H5Guard(H5Gclose (files[id]));
+  
+  files[id] = -1;
 }

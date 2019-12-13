@@ -13,4 +13,8 @@ void closeFile(int id);
 
 void getDims(int id, int dims[2]);
 
+int createGroup(int id, const char* format, ...);
+
+void closeGroup(int id);
+
 #endif
