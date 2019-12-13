@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-
+#include <string.h>
 
 #include <mpi.h>
 #include "hdf5IO.h"
@@ -25,7 +25,14 @@ void Mean(double* data, int mdims[2], int fdims[2], int yOffset, double *xmean, 
 
   ymean[0] /= (fdims[0] * fdims[1]);
 
-  MPI_Reduce(MPI_IN_PLACE, ymean, fdims[1] + 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+  
+
+ 
+  double *ymean_cpy = (double*)calloc(fdims[1] + 1, sizeof(double));
+
+  MPI_Reduce(ymean, ymean_cpy, fdims[1] + 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+  memcpy(ymean, ymean_cpy, (fdims[1] + 1) * sizeof(double));
+  free(ymean_cpy);
 }
 
 int main(int argc, char** argv) {
