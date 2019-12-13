@@ -11,4 +11,6 @@ void readFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileDi
 
 void closeFile(int id);
 
+void getDims(int id, int dims[2]);
+
 #endif

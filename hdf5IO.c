@@ -229,27 +229,27 @@ void readFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileDi
 
 
   // create the dataset
-  dataset_id = H5Guard(H5Dcreate(files[id], s, H5T_NATIVE_DOUBLE, fdataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+  dataset_id = H5Guard(H5Dopen(files[id], s, H5P_DEFAULT));
 
 
 
-  // create the hyperslabs
+  // open the hyperslabs
   H5Guard(H5Sselect_hyperslab(mdataspace_id, H5S_SELECT_SET, memOffset,  NULL, dataSize, NULL));
   H5Guard(H5Sselect_hyperslab(fdataspace_id, H5S_SELECT_SET, fileOffset, NULL, dataSize, NULL));
 
 
 
-  // write in the file
-  if( multiAccessFiles[id] ) {
+  // read in the file
+  /*if( multiAccessFiles[id] ) {
     hid_t plist_id = H5Guard(H5Pcreate(H5P_DATASET_XFER));
     H5Guard(H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE));
 
     H5Guard(H5Dwrite(dataset_id, H5T_NATIVE_DOUBLE, mdataspace_id, fdataspace_id, plist_id, data));
     
     H5Guard(H5Pclose(plist_id));
-  } else {
-    H5Guard(H5Dwrite(dataset_id, H5T_NATIVE_DOUBLE, mdataspace_id, fdataspace_id, H5P_DEFAULT, data));
-  }
+  } else {*/
+    H5Guard(H5Dread(dataset_id, H5T_NATIVE_DOUBLE, mdataspace_id, fdataspace_id, H5P_DEFAULT, data));
+  //}
 
 
   //close dataset and dataspaces
@@ -275,3 +275,16 @@ void closeFile(int id) {
   files[id] = -1;
 }
 
+
+void getDims(int id, int dims[2]) {
+  hsize_t dim[2];
+
+  hid_t dataset_id =  H5Guard(H5Dopen(files[id], "/step0", H5P_DEFAULT));
+
+  hid_t dataspace_id = H5Guard(H5Dget_space(dataset_id));
+  H5Guard(H5Sget_simple_extent_dims(dataspace_id, dim, NULL));
+
+  H5Guard(H5Dclose(dataset_id));
+
+  dims[0] = dim[0]; dims[1] = dim[1];
+}
