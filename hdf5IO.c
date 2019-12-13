@@ -9,7 +9,6 @@
 #define MAX_FILE_NUM 10
 hid_t files[MAX_FILE_NUM];
 hid_t plistIds[MAX_FILE_NUM];
-hid_t multiAccessFiles[MAX_FILE_NUM];
 int files_init = 0;
 
 // return the string resulting of sprintf, but using va_list
@@ -60,13 +59,9 @@ int createFile(int multiAccess, const char* format, ...) {
         H5Guard(H5Pset_fapl_mpio(plistIds[i], MPI_COMM_WORLD, MPI_INFO_NULL));
         // create HDF5 file
         files[i] = H5Guard(H5Fcreate(s, H5F_ACC_TRUNC, H5P_DEFAULT, plistIds[i]));
-        
-        multiAccessFiles[i] = 1;
       } else {
         // create HDF5 file
         files[i] = H5Guard(H5Fcreate(s, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
-        
-        multiAccessFiles[i] = 0;
       }
 
       return i;
@@ -101,21 +96,17 @@ int openFile(int multiAccess, const char* format, ...) {
   // Check the array of ids to find an empty slot
   for(int i = 0; i < MAX_FILE_NUM; i++) {
     if(files[i] == -1) {
-      /*// if the file is going to be accessed by multiple processes
+      // if the file is going to be accessed by multiple processes
       if( multiAccess ) {
         // create access rules
         plistIds[i] = H5Guard(H5Pcreate(H5P_FILE_ACCESS));
         H5Guard(H5Pset_fapl_mpio(plistIds[i], MPI_COMM_WORLD, MPI_INFO_NULL));
         // create HDF5 file
-        files[i] = H5Guard(H5Fcreate(s, H5F_ACC_TRUNC, H5P_DEFAULT, plistIds[i]));
-        
-        multiAccessFiles[i] = 1;
-      } else {*/
+        files[i] = H5Guard(H5Fopen(s, H5F_ACC_RDONLY, plistIds[i]));
+      } else {
         // open HDF5 file
         files[i] = H5Guard(H5Fopen(s, H5F_ACC_RDONLY, H5P_DEFAULT));
-        
-        multiAccessFiles[i] = 0;
-      //}
+      }
 
       return i;
     }
@@ -132,7 +123,7 @@ int openFile(int multiAccess, const char* format, ...) {
 // dataMargin defines the size of the margin of the 2D array which is no going to be written in the file.
 // fileDims defines the dimension of the file.
 // The data array will be written in the file at the position defined by fileXOffset and fileYOffset
-void writeFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileDims, int fileXOffset, int fileYOffset, const char* format, ...) {
+void writeFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileDims, int fileXOffset, int fileYOffset, int multiAccess, const char* format, ...) {
   // get the name of the dataset we're writing in
   GET_NAME
  
@@ -174,7 +165,7 @@ void writeFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileD
 
 
   // write in the file
-  if( multiAccessFiles[id] ) {
+  if( multiAccess ) {
     hid_t plist_id = H5Guard(H5Pcreate(H5P_DATASET_XFER));
     H5Guard(H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE));
 
@@ -198,7 +189,7 @@ void writeFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileD
 // dataMargin defines the size of the margin of the 2D array which is no going to be written in the file.
 // fileDims defines the dimension of the file.
 // The data array will be written in the file at the position defined by fileXOffset and fileYOffset
-void readFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileDims, int fileXOffset, int fileYOffset, const char* format, ...) {
+void readFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileDims, int fileXOffset, int fileYOffset, int multiAccess, const char* format, ...) {
   // get the name of the dataset we're writing in
   GET_NAME
  
@@ -240,16 +231,16 @@ void readFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileDi
 
 
   // read in the file
-  /*if( multiAccessFiles[id] ) {
+  if( multiAccess ) {
     hid_t plist_id = H5Guard(H5Pcreate(H5P_DATASET_XFER));
     H5Guard(H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE));
 
-    H5Guard(H5Dwrite(dataset_id, H5T_NATIVE_DOUBLE, mdataspace_id, fdataspace_id, plist_id, data));
+    H5Guard(H5Dread(dataset_id, H5T_NATIVE_DOUBLE, mdataspace_id, fdataspace_id, plist_id, data));
     
     H5Guard(H5Pclose(plist_id));
-  } else {*/
+  } else {
     H5Guard(H5Dread(dataset_id, H5T_NATIVE_DOUBLE, mdataspace_id, fdataspace_id, H5P_DEFAULT, data));
-  //}
+  }
 
 
   //close dataset and dataspaces
@@ -261,10 +252,10 @@ void readFrame(int id, double *data, int *arrayDims, int dataMargin, int *fileDi
 
 
 // Close the HDF5 file
-void closeFile(int id) {
+void closeFile(int id, int multiAccess) {
 
   // close the access rules
-  if(multiAccessFiles[id]) {
+  if( multiAccess ) {
     H5Guard(H5Pclose(plistIds[id]));
   }
 
@@ -290,32 +281,13 @@ void getDims(int id, int dims[2]) {
 }
 
 int createGroup(int id, const char* format, ...) {
-    // get the name of the file we're trying to open
+  // get the name of the file we're trying to open
   GET_NAME
 
-  // get MPI rank
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  
   // Check the array of ids to find an empty slot
   for(int i = 0; i < MAX_FILE_NUM; i++) {
     if(files[i] == -1) {
-      // if the file is going to be accessed by multiple processes
-      /*if( multiAccess ) {
-        // create access rules
-        plistIds[i] = H5Guard(H5Pcreate(H5P_FILE_ACCESS));
-        H5Guard(H5Pset_fapl_mpio(plistIds[i], MPI_COMM_WORLD, MPI_INFO_NULL));
-        // create HDF5 file
-        files[i] = H5Guard(H5Fcreate(s, H5F_ACC_TRUNC, H5P_DEFAULT, plistIds[i]));
-        
-        multiAccessFiles[i] = 1;
-      } else {*/
-        // create HDF5 group
-        files[i] = H5Guard(H5Gcreate( files[id], s, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-        
-        multiAccessFiles[i] = 0;
-      //}
-
+      files[i] = H5Guard(H5Gcreate( files[id], s, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
       return i;
     }
   }

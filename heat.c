@@ -197,16 +197,16 @@ int main( int argc, char* argv[] )
   // Q1
   /*int fileId = createFile(0, "heat%dx%d.h5", pcoord[0], pcoord[1]);
   fsize[0] = dsize[0]; fsize[1] = dsize[1];
-  writeFrame(fileId, (double*)cur, dsize, 0, fsize, 0, 0, "/step0");*/
+  writeFrame(fileId, (double*)cur, dsize, 0, fsize, 0, 0, 1, "/step0");*/
   
   // Q2
   /*int fileId = createFile(0, "heat%dx%d.h5", pcoord[0], pcoord[1]);
   fsize[0] = dsize[0] - 2; fsize[1] = dsize[1] - 2;
-  writeFrame(fileId, (double*)cur, dsize, 1, fsize, 0, 0, "/step0");*/
+  writeFrame(fileId, (double*)cur, dsize, 1, fsize, 0, 0, 1, "/step0");*/
 
   // Q3
   int fileId = createFile(1, "heat.h5");
-  writeFrame(fileId, (double*)cur, dsize, 1, fsize, pcoord[0] * (dsize[0] - 2), pcoord[1] * (dsize[1] - 2), "/step0");
+  writeFrame(fileId, (double*)cur, dsize, 1, fsize, pcoord[0] * (dsize[0] - 2), pcoord[1] * (dsize[1] - 2), 1, "/step0");
 
   // the main (time) iteration
   for (int ii=0; ii<nb_iter; ++ii) {
@@ -228,11 +228,11 @@ int main( int argc, char* argv[] )
     //writeFrame(fileId, (double*)cur, dsize, 1, fsize, 0, 0, "/step%d", ii+1);
 
     // Q3
-    writeFrame(fileId, (double*)cur, dsize, 1, fsize, pcoord[0] * (dsize[0] - 2), pcoord[1] * (dsize[1] - 2), "/step%d", ii+1);
+    writeFrame(fileId, (double*)cur, dsize, 1, fsize, pcoord[0] * (dsize[0] - 2), pcoord[1] * (dsize[1] - 2), 1, "/step%d", ii+1);
   }
   
   // Close file
-  closeFile(fileId);
+  closeFile(fileId, 1);
 
   // free memory
   free(cur);

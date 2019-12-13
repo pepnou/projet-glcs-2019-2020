@@ -24,8 +24,8 @@ int main(int argc, char** argv) {
   printf("%d %d\n\n", rank, size);
  
   // open heat.h5, diags.h5
-  int id_heat = openFile(0, "heat.h5"),
-      id_de = createFile(0, "diags.h5");
+  int id_heat = openFile(1, "heat.h5"),
+      id_de = createFile(1, "diags.h5");
 
   int fdims[2];
   getDims(id_heat, fdims);
@@ -52,18 +52,18 @@ int main(int argc, char** argv) {
     
     int group_id = createGroup(id_de, "/%d", step);
 
-    readFrame(id_heat, previous_data, mdims, 0, fdims, 0, mdims[0] * rank, "/step%d", step-1);
-    readFrame(id_heat, data         , mdims, 0, fdims, 0, mdims[0] * rank, "/step%d", step);
+    readFrame(id_heat, previous_data, mdims, 0, fdims, 0, mdims[0] * rank, 1, "/step%d", step-1);
+    readFrame(id_heat, data         , mdims, 0, fdims, 0, mdims[0] * rank, 1, "/step%d", step);
 
     Derivative(previous_data, data, mdims);
 
-    writeFrame(group_id, data, mdims, 0, fdims, 0, mdims[0] * rank,"./derivative");
+    writeFrame(group_id, data, mdims, 0, fdims, 0, mdims[0] * rank, 1,"./derivative");
 
     closeGroup(group_id);
   }
 
-  closeFile(id_heat);
-  closeFile(id_de);
+  closeFile(id_heat, 1);
+  closeFile(id_de, 1);
 
 
   MPI_Finalize();

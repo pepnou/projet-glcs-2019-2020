@@ -20,11 +20,11 @@ runHeat: heat.out
 	
 
 runMean: mean.out runHeat
-	./$< 1 2
+	mpirun -np 4 ./$< 1 2
 	
 
 runDerivative: derivative.out runHeat
-	./$< 2 4
+	mpirun -np 4 ./$< 2 4
 	
 
 clean: cleanH5

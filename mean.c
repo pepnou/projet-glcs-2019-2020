@@ -38,8 +38,8 @@ int main(int argc, char** argv) {
   printf("%d %d\n\n", rank, size);
  
   // open heat.h5, diags.h5
-  int id_heat = openFile(0, "heat.h5"),
-      id_mean = createFile(0, "diags.h5");
+  int id_heat = openFile(1, "heat.h5"),
+      id_mean = createFile(1, "diags.h5");
 
   int fdims[2];
   getDims(id_heat, fdims);
@@ -76,24 +76,24 @@ int main(int argc, char** argv) {
     
     int group_id = createGroup(id_mean, "/%d", step);
 
-    readFrame(id_heat, data, mdims, 0, fdims, 0, mdims[0] * rank, "/step%d", step);
+    readFrame(id_heat, data, mdims, 0, fdims, mdims[0] * rank, 0, 1, "/step%d", step);
 
     Mean(data, mdims, fdims, mdims[0] * rank, xmean, ymean);
 
     if(rank == 0) {
-      writeFrame(group_id, ymean, meanSize, 0, meanSize, 0,0,"./mean");
+      writeFrame(group_id, ymean, meanSize, 0, meanSize, 0, 0, 0,"./mean");
     }
 
 
-    writeFrame(group_id, xmean, xmeanSize, 0, xmeanSize, 0,0,"./x_mean");
-    writeFrame(group_id, &ymean[1], ymeanSize, 0, ymeanSize, 0,0,"./y_mean");
+    writeFrame(group_id, xmean, xmeanSize, 0, xmeanSize, 0, 0, 1,"./x_mean");
+    writeFrame(group_id, &ymean[1], ymeanSize, 0, ymeanSize, 0, 0, 1,"./y_mean");
 
 
     closeGroup(group_id);
   }
 
-  closeFile(id_heat);
-  closeFile(id_mean);
+  closeFile(id_heat, 1);
+  closeFile(id_mean, 1);
 
 
   MPI_Finalize();
